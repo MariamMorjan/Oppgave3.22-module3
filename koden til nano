@@ -1,0 +1,99 @@
+// Mariam Morjan
+// Oppgave 3.22 modernifisert av oppgave 3.21
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <math.h>
+#include <sys/shm.h>
+
+int main()
+{
+    const char* name = "Collatz"; 
+    const int SIZE = 4096; 
+	
+    /*Pointer til delt minne objekt*/
+    void* ptr; 
+	
+    /*delt minne beskrivelse*/	
+    int shm_fd, n; 
+	
+    pid_t pid;
+	
+    /*lager delt minne objekt */	
+    shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
+	
+    /*endrer størrelsen på delt minne*/	
+    ftruncate(shm_fd, SIZE);
+    
+    /*minne mapper deler minne objekter*/
+    ptr = mmap(0, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0); 
+    
+     
+        
+    pid = fork(); 
+
+     /*sjekker om forkingen ble utført*/
+    if (pid < 0){ 
+    fprintf(stderr, "Fork Feilet \n");
+    return 1; 
+    } 
+	
+    /*parent prosess*/
+    if (pid > 0) { 
+	    
+	/*venter på child prosessen*/
+        waitpid(pid, 0, 0); 
+	    
+	/*printer ut tallene child prosess skriver til shared memory*/    
+        printf("Parent: %s ", (char*)ptr);
+    }  
+
+    /*child prosess*/	
+    else if (pid == 0) { 
+    
+        
+	  /*En Do-while loop som sjekker at tallet satt inn er over 0*/  
+	  do{  
+			printf("Må bli satt inn et nummer over 0.\n"); 
+  			scanf("%d", &n);
+		}while (n <= 0);
+	    
+	/*setter pointerens nye verdi*/    
+        int i = log10(n) + 2; 
+	    
+	/*skriver til shared memory object*/    
+        sprintf(ptr, "%d ", n); 
+	 
+	/*Setter pointerens nye verdi*/    
+        ptr += i; 
+        
+       while (n != 1){   
+             
+                if (n % 2 == 0){
+
+			n = n / 2;
+		}
+		else if (n % 2 == 1){
+
+			n = (3 * n) + 1;
+		}	
+      
+            sprintf(ptr, "%d \n", n); 
+	       
+	     /*kalkulerer lengden på input så pointeren havner på riktig sted*/  
+            int i = log10(n) + 2; 
+            ptr += i; 
+        
+       }
+    }
+    
+    /*terminerer shared memory objekt og innholdet*/
+    shm_unlink(name);
+    return 0;
+}
